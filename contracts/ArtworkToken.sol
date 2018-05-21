@@ -71,6 +71,7 @@ contract ArtworkToken is ERC721Token, ERC165, Ownable, Logger {
             || (_interfaceID == InterfaceSignature_ERC721Metadata));
     }
     /* solhint-enable */
+    event Sale(address indexed _from, address indexed _to, uint256 _tokenId, uint64 _price, bytes8 _currency);
 
     struct Edition {
         string title;
@@ -81,14 +82,34 @@ contract ArtworkToken is ERC721Token, ERC165, Ownable, Logger {
 
     mapping(uint256 => Edition) internal tokenIdToEdition;
     address managerContract;
+    bool internal _initialized;
 
     modifier onlyManagers() {
         require(msg.sender == owner || msg.sender == managerContract);
         _;
     }
 
+    modifier canTransfer(uint256 _tokenId) {
+        if (msg.sender == managerContract) {
+            _;
+        } else { //this is parent modifier, super didn't seem to work
+            require(isApprovedOrOwner(msg.sender, _tokenId));
+            _;
+        }
+    }
+
     // Initialize constructor with token name and symbol
     constructor() public ERC721Token("Digital Objects Artwork", "DOBJ") {
+    }
+
+    function initialize(address _owner) public {
+        require(!_initialized);
+
+        owner = _owner;     //Ownable constructor
+        name_ = "Digital Objects Artwork";      //ERC721Token constructor
+        symbol_ = "DOBJ";  //ERC721Token constructor
+        _initialized = true;
+
     }
 
     function setManager(address _manager) public onlyOwner {
@@ -132,12 +153,15 @@ contract ArtworkToken is ERC721Token, ERC165, Ownable, Logger {
         //require(exists(_tokenId));
         require(bytes(_tokenURI).length > 0);
         require(_price > 0);
-        Logger.logString("Title", _title);
-        Logger.logUint("Price", _price);
-        Logger.logAddress("Artist", _artist);
         super._mint(_buyer, _tokenId);
         super._setTokenURI(_tokenId, _tokenURI);
         _populateTokenData(_tokenId, _title, _artistName, _editionNumber, _editionCount);
+        emit Sale(_artist, _buyer, _tokenId, _price, bytes8("USD"));
+    }
+
+    function transferFrom(address _seller, address _buyer, uint256 _tokenId, uint64 _price) public canTransfer(_tokenId) {
+        super.transferFrom(_seller, _buyer, _tokenId);
+        emit Sale(_seller, _buyer, _tokenId, _price, bytes8("USD"));
     }
 
     function burn(uint256 _tokenId) public onlyManagers {

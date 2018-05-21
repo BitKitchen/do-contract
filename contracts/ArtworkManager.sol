@@ -45,4 +45,12 @@ contract ArtworkManager is Ownable, Logger {
         return artworkTokenContract.totalSupply();
     }
 
+    function transferToken(
+        uint256 _tokenId,
+        uint64 _price,
+        address _seller,
+        address _buyer
+    ) public onlyOwner {
+        artworkTokenContract.transferFrom(_seller, _buyer, _tokenId, _price);
+    }
 }
